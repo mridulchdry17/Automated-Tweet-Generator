@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Funny Tweet Generator</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #1da1f2;
+            --primary-dark: #0d8ddb;
+            --bg: #f5f8fa;
+            --tweet-bg: #fff;
+            --tweet-border: #e1e8ed;
+            --tweet-shadow: 0 2px 12px #0001;
+            --text-main: #14171a;
+            --text-secondary: #657786;
+            --success: #1da14b;
+            --error: #e02d2d;
+        }
+        body {
+            font-family: 'Inter', Arial, sans-serif;
+            background: var(--bg);
+            margin: 0;
+            color: var(--text-main);
+        }
+        .container {
+            max-width: 480px;
+            margin: 48px auto;
+            background: #fff;
+            border-radius: 18px;
+            box-shadow: 0 4px 24px #0002;
+            padding: 36px 32px 28px 32px;
+        }
+        .back-link {
+            display: block;
+            margin-bottom: 18px;
+            color: var(--primary);
+            text-decoration: none;
+            font-weight: bold;
+            font-size: 1.05em;
+        }
+        .back-link:hover { text-decoration: underline; }
+        h1 {
+            text-align: center;
+            color: var(--primary);
+            margin-bottom: 18px;
+            font-weight: 800;
+        }
+        label {
+            display: block;
+            margin-top: 18px;
+            font-weight: 600;
+            color: var(--text-main);
+        }
+        input[type="text"] {
+            width: 100%;
+            padding: 12px;
+            margin-top: 6px;
+            border: 1px solid #c7e0f4;
+            border-radius: 6px;
+            font-size: 1rem;
+            background: #f7fbff;
+        }
+        .action-btn {
+            background: var(--primary);
+            color: #fff;
+            border: none;
+            padding: 13px 0;
+            border-radius: 6px;
+            margin-top: 22px;
+            cursor: pointer;
+            font-size: 1.08rem;
+            width: 100%;
+            font-weight: 700;
+            transition: background 0.2s, box-shadow 0.2s;
+            box-shadow: 0 2px 8px #1da1f220;
+        }
+        .action-btn:disabled {
+            background: #a0d8f7;
+            cursor: not-allowed;
+        }
+        .tweet-box {
+            background: var(--tweet-bg);
+            border: 1px solid var(--tweet-border);
+            border-radius: 14px;
+            box-shadow: var(--tweet-shadow);
+            padding: 18px 20px 14px 20px;
+            margin-top: 22px;
+            font-size: 1.13rem;
+            min-height: 48px;
+            color: var(--text-main);
+            position: relative;
+        }
+        .tweet-box .tweet-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 6px;
+        }
+        .tweet-box .tweet-avatar {
+            width: 34px;
+            height: 34px;
+            border-radius: 50%;
+            background: #e1e8ed;
+            object-fit: cover;
+        }
+        .tweet-box .tweet-user {
+            font-weight: 600;
+            color: var(--text-main);
+        }
+        .tweet-box .tweet-handle {
+            color: var(--text-secondary);
+            font-size: 0.98em;
+        }
+        .tweet-box .tweet-content {
+            font-size: 1.13em;
+            color: var(--text-main);
+            margin: 8px 0 0 0;
+        }
+        .history-section {
+            background: #f8fafc;
+            border: 1px solid #e3e8ee;
+            border-radius: 10px;
+            padding: 14px 14px 8px 14px;
+            margin-top: 18px;
+            font-size: 0.98rem;
+            color: #444;
+        }
+        .history-title {
+            font-weight: bold;
+            color: var(--primary);
+            margin-bottom: 6px;
+        }
+        .success {
+            color: var(--success);
+            margin-top: 12px;
+            text-align: center;
+            font-weight: 600;
+        }
+        .error {
+            color: var(--error);
+            margin-top: 12px;
+            text-align: center;
+            font-weight: 600;
+        }
+        @media (max-width: 600px) {
+            .container { padding: 18px 4vw; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="/" class="back-link">&larr; Back to Home</a>
+        <h1>Funny Tweet Generator</h1>
+        <label for="topic">Enter a topic:</label>
+        <input type="text" id="topic" placeholder="e.g. Indian Railways">
+        <button id="generateBtn" class="action-btn">Generate & Optimize Tweet</button>
+        <div id="tweetBox" class="tweet-box" style="display:none;">
+            <div class="tweet-header">
+                <img class="tweet-avatar" src="https://randomuser.me/api/portraits/men/32.jpg" alt="avatar">
+                <div>
+                    <span class="tweet-user">You</span> <span class="tweet-handle">@yourhandle</span>
+                </div>
+            </div>
+            <div class="tweet-content" id="tweetContent"></div>
+        </div>
+        <div id="historyBox" class="history-section" style="display:none;"></div>
+        <button id="postBtn" class="action-btn" style="display:none;">Post to My Twitter</button>
+        <div id="resultMsg"></div>
+    </div>
+    <script>
+        const generateBtn = document.getElementById('generateBtn');
+        const tweetBox = document.getElementById('tweetBox');
+        const tweetContent = document.getElementById('tweetContent');
+        const historyBox = document.getElementById('historyBox');
+        const postBtn = document.getElementById('postBtn');
+        const resultMsg = document.getElementById('resultMsg');
+        let currentTweet = '';
+        let tweetHistory = [];
+        let feedbackHistory = [];
+
+        generateBtn.onclick = async function() {
+            const topic = document.getElementById('topic').value.trim();
+            tweetBox.style.display = 'none';
+            postBtn.style.display = 'none';
+            historyBox.style.display = 'none';
+            resultMsg.textContent = '';
+            if (!topic) {
+                resultMsg.textContent = 'Please enter a topic.';
+                resultMsg.className = 'error';
+                return;
+            }
+            generateBtn.disabled = true;
+            generateBtn.textContent = 'Generating...';
+            try {
+                const res = await fetch('/generate-tweet', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ topic })
+                });
+                const data = await res.json();
+                if (data.tweet) {
+                    currentTweet = data.tweet;
+                    tweetHistory = data.tweet_history || [];
+                    feedbackHistory = data.feedback_history || [];
+                    tweetContent.textContent = data.tweet;
+                    tweetBox.style.display = 'block';
+                    // Show history if available
+                    if (tweetHistory.length > 1) {
+                        let histHtml = '<div class="history-title">Tweet/Feedback History:</div>';
+                        for (let i = 0; i < tweetHistory.length; i++) {
+                            histHtml += `<div><b>Version ${i+1}:</b> ${tweetHistory[i]}</div>`;
+                            if (feedbackHistory[i]) {
+                                histHtml += `<div style='margin-left:10px;color:#888;'>Feedback: ${feedbackHistory[i]}</div>`;
+                            }
+                        }
+                        historyBox.innerHTML = histHtml;
+                        historyBox.style.display = 'block';
+                    } else {
+                        historyBox.style.display = 'none';
+                    }
+                    postBtn.style.display = 'block';
+                } else {
+                    resultMsg.textContent = data.error || 'Failed to generate tweet.';
+                    resultMsg.className = 'error';
+                }
+            } catch (err) {
+                resultMsg.textContent = 'Error connecting to backend.';
+                resultMsg.className = 'error';
+            }
+            generateBtn.disabled = false;
+            generateBtn.textContent = 'Generate & Optimize Tweet';
+        };
+
+        postBtn.onclick = async function() {
+            resultMsg.textContent = '';
+            postBtn.disabled = true;
+            postBtn.textContent = 'Posting...';
+            try {
+                const res = await fetch('/post-tweet', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ tweet: currentTweet })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    resultMsg.textContent = 'Tweet posted successfully! Tweet ID: ' + data.tweet_id;
+                    resultMsg.className = 'success';
+                } else {
+                    resultMsg.textContent = data.error || 'Failed to post tweet.';
+                    resultMsg.className = 'error';
+                }
+            } catch (err) {
+                resultMsg.textContent = 'Error connecting to backend.';
+                resultMsg.className = 'error';
+            }
+            postBtn.disabled = false;
+            postBtn.textContent = 'Post to My Twitter';
+        };
+    </script>
+</body>
+</html> 

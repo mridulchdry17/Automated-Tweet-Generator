@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tweet Generator - Landing Page</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #1da1f2;
+            --primary-dark: #0d8ddb;
+            --bg: #f5f8fa;
+            --tweet-bg: #fff;
+            --tweet-border: #e1e8ed;
+            --tweet-shadow: 0 2px 12px #0001;
+            --text-main: #14171a;
+            --text-secondary: #657786;
+        }
+        body {
+            font-family: 'Inter', Arial, sans-serif;
+            background: var(--bg);
+            margin: 0;
+            color: var(--text-main);
+        }
+        .hero {
+            text-align: center;
+            padding: 60px 20px 30px 20px;
+        }
+        .hero h1 {
+            font-size: 2.6rem;
+            font-weight: 800;
+            margin-bottom: 12px;
+            color: var(--primary);
+        }
+        .hero p {
+            font-size: 1.2rem;
+            color: var(--text-secondary);
+            margin-bottom: 32px;
+        }
+        .cta-btn {
+            background: var(--primary);
+            color: #fff;
+            border: none;
+            padding: 1em 2.2em;
+            font-size: 1.2em;
+            border-radius: 999px;
+            font-weight: 600;
+            cursor: pointer;
+            box-shadow: 0 2px 8px #1da1f220;
+            transition: background 0.2s, box-shadow 0.2s;
+        }
+        .cta-btn:hover, .cta-btn:focus {
+            background: var(--primary-dark);
+            box-shadow: 0 4px 16px #1da1f230;
+        }
+        .cards-row {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 28px;
+            margin: 0 auto 48px auto;
+            max-width: 900px;
+        }
+        .tweet-card {
+            background: var(--tweet-bg);
+            border: 1px solid var(--tweet-border);
+            border-radius: 18px;
+            box-shadow: var(--tweet-shadow);
+            padding: 22px 26px 18px 26px;
+            width: 320px;
+            min-height: 120px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            transition: transform 0.15s, box-shadow 0.15s;
+            position: relative;
+        }
+        .tweet-card:hover {
+            transform: translateY(-4px) scale(1.025);
+            box-shadow: 0 6px 24px #1da1f220;
+        }
+        .tweet-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .tweet-avatar {
+            width: 38px;
+            height: 38px;
+            border-radius: 50%;
+            background: #e1e8ed;
+            object-fit: cover;
+        }
+        .tweet-user {
+            font-weight: 600;
+            color: var(--text-main);
+        }
+        .tweet-handle {
+            color: var(--text-secondary);
+            font-size: 0.98em;
+        }
+        .tweet-content {
+            font-size: 1.13em;
+            color: var(--text-main);
+            margin: 8px 0 0 0;
+        }
+        .tweet-footer {
+            margin-top: 8px;
+            color: var(--text-secondary);
+            font-size: 0.95em;
+            display: flex;
+            gap: 18px;
+        }
+        .tweet-footer span {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .tweet-footer svg {
+            width: 16px;
+            height: 16px;
+            fill: var(--text-secondary);
+        }
+        @media (max-width: 900px) {
+            .cards-row { gap: 18px; }
+            .tweet-card { width: 98vw; max-width: 340px; }
+        }
+        @media (max-width: 600px) {
+            .hero { padding: 36px 6vw 18px 6vw; }
+            .cards-row { gap: 12px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="hero">
+        <h1>Welcome to Tweet Generator!</h1>
+        <p>Unleash your inner meme lord. Instantly generate and post hilarious, viral-worthy tweets with AI.<br>Try it out and join the fun!</p>
+        <a href="/tweet"><button class="cta-btn">Generate Your Own Tweet</button></a>
+    </div>
+    <div class="cards-row">
+        <!-- Dummy tweet card 1 -->
+        <div class="tweet-card">
+            <div class="tweet-header">
+                <img class="tweet-avatar" src="https://randomuser.me/api/portraits/men/32.jpg" alt="avatar">
+                <div>
+                    <span class="tweet-user">Rohit Memez</span> <span class="tweet-handle">@rohitmemez</span>
+                </div>
+            </div>
+            <div class="tweet-content">Why do I always lose one sock in the laundry? Somewhere out there is a club of single socks living their best life. 🧦✨</div>
+            <div class="tweet-footer">
+                <span><svg viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41 0.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"></path></svg> 1.2k</span>
+                <span><svg viewBox="0 0 24 24"><path d="M23 3a1 1 0 0 0-1 1v13.59l-3.3-3.3a1 1 0 0 0-1.4 1.42l5 5a1 1 0 0 0 1.4 0l5-5a1 1 0 1 0-1.4-1.42l-3.3 3.3V4a1 1 0 0 0-1-1z"></path></svg> 320</span>
+            </div>
+        </div>
+        <!-- Dummy tweet card 2 -->
+        <div class="tweet-card">
+            <div class="tweet-header">
+                <img class="tweet-avatar" src="https://randomuser.me/api/portraits/women/44.jpg" alt="avatar">
+                <div>
+                    <span class="tweet-user">Priya LOL</span> <span class="tweet-handle">@priyalol</span>
+                </div>
+            </div>
+            <div class="tweet-content">If you think nobody cares if you’re alive, try missing a couple of credit card payments. 💳😅</div>
+            <div class="tweet-footer">
+                <span><svg viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41 0.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"></path></svg> 2.1k</span>
+                <span><svg viewBox="0 0 24 24"><path d="M23 3a1 1 0 0 0-1 1v13.59l-3.3-3.3a1 1 0 0 0-1.4 1.42l5 5a1 1 0 0 0 1.4 0l5-5a1 1 0 1 0-1.4-1.42l-3.3 3.3V4a1 1 0 0 0-1-1z"></path></svg> 410</span>
+            </div>
+        </div>
+        <!-- Dummy tweet card 3 -->
+        <div class="tweet-card">
+            <div class="tweet-header">
+                <img class="tweet-avatar" src="https://randomuser.me/api/portraits/men/65.jpg" alt="avatar">
+                <div>
+                    <span class="tweet-user">Amit Banter</span> <span class="tweet-handle">@amitbanter</span>
+                </div>
+            </div>
+            <div class="tweet-content">My fitness coach: “No days off!”<br>Me: “Absolutely, I don’t even start.” 🏋️‍♂️🍕</div>
+            <div class="tweet-footer">
+                <span><svg viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41 0.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"></path></svg> 980</span>
+                <span><svg viewBox="0 0 24 24"><path d="M23 3a1 1 0 0 0-1 1v13.59l-3.3-3.3a1 1 0 0 0-1.4 1.42l5 5a1 1 0 0 0 1.4 0l5-5a1 1 0 1 0-1.4-1.42l-3.3 3.3V4a1 1 0 0 0-1-1z"></path></svg> 150</span>
+            </div>
+        </div>
+    </div>
+</body>
+</html> 
