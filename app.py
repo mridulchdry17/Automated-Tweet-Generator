@@ -1,38 +1,53 @@
-from flask import Flask, request, jsonify, send_file
+from flask import Flask, request, jsonify, send_file, redirect, url_for, session
 from langgraph.graph import StateGraph, START, END
 from typing import TypedDict, Literal, Annotated
 from langchain_groq import ChatGroq
 from langchain_core.messages import SystemMessage, HumanMessage
 import operator
 from dotenv import load_dotenv
-import tweepy
+import requests
+import secrets
 import os
 
-load_dotenv()
+load_dotenv(override=True)
 
-# Twitter credentials from .env
-consumer_key = os.getenv("CONSUMER_KEY")
-consumer_secret = os.getenv("CONSUMER_SECRET")
-access_token = os.getenv("ACCESS_TOKEN")
-access_secret = os.getenv("ACCESS_SECRET")
+app = Flask(__name__)
+app.secret_key = os.urandom(24)  # For sessions
 
-# Tweepy client setup
-client = tweepy.Client(
-    consumer_key=consumer_key,
-    consumer_secret=consumer_secret,
-    access_token=access_token,
-    access_token_secret=access_secret
-)
+# X API OAuth 2.0 settings
+CLIENT_ID = os.getenv("CLIENT_ID")
+CLIENT_SECRET = os.getenv("CLIENT_SECRET")
+REDIRECT_URI = "http://127.0.0.1:5000/callback"  # Update for production
+AUTH_URL = "https://twitter.com/i/oauth2/authorize"
+TOKEN_URL = "https://api.twitter.com/2/oauth2/token"
 
-generator_llm = ChatGroq(model_name ="llama-3.1-8b-instant",temperature=2)
-evaluator_llm = ChatGroq(model_name ="llama-3.1-8b-instant")
-optimizer_llm = ChatGroq(model_name ="llama-3.1-8b-instant")
+# Check if required environment variables are set
+if not CLIENT_ID:
+    print("⚠️  WARNING: CLIENT_ID not found in environment variables")
+    print("   Please set CLIENT_ID in your .env file for X OAuth functionality")
+
+if not CLIENT_SECRET:
+    print("⚠️  WARNING: CLIENT_SECRET not found in environment variables")
+    print("   Please set CLIENT_SECRET in your .env file for X OAuth functionality")
+
+# In-memory storage for user tokens (use database in production)
+user_tokens = {}
+
+# Your Grok models (unchanged)
+try:
+    generator_llm = ChatGroq(model_name="llama-3.1-8b-instant", temperature=2)
+    evaluator_llm = ChatGroq(model_name="llama-3.1-8b-instant")
+    optimizer_llm = ChatGroq(model_name="llama-3.1-8b-instant")
+except Exception as e:
+    print(f"⚠️  WARNING: Could not initialize Groq models: {e}")
+    print("   Please ensure GROQ_API_KEY is set in your .env file")
+    generator_llm = evaluator_llm = optimizer_llm = None
 
 from pydantic import BaseModel, Field
 
 class TweetEvaluation(BaseModel):
-    evaluation: Literal['approved','needs_improvement'] = Field(..., description ="Final Evaluation")
-    feedback: str = Field(...,description = "feedback for the tweet.")
+    evaluation: Literal['approved', 'needs_improvement'] = Field(..., description="Final Evaluation")
+    feedback: str = Field(..., description="Feedback for the tweet.")
 
 structured_evaluator_llm = evaluator_llm.with_structured_output(TweetEvaluation)
 
@@ -43,9 +58,10 @@ class TweetState(TypedDict):
     feedback: str
     iteration: int
     max_iteration: int
-    tweet_history: Annotated[list[str],operator.add]
-    feedback_history: Annotated[list[str],operator.add]
+    tweet_history: Annotated[list[str], operator.add]
+    feedback_history: Annotated[list[str], operator.add]
 
+# Your existing tweet generation logic (unchanged)
 def generate_tweet(state: TweetState):
     messages = [
         SystemMessage(content="You are a funny and clever Twitter/X influencer."),
@@ -62,87 +78,191 @@ Rules:
 """)
     ]
     response = generator_llm.invoke(messages).content
-    return {
-        'tweet': response,
-        'tweet_history': [response]}
+    return {'tweet': response, 'tweet_history': [response]}
 
 def evaluate_tweet(state: TweetState):
     messages = [
-    SystemMessage(content="You are a ruthless, no-laugh-given Twitter critic. You evaluate tweets based on humor, originality, virality, and tweet format."),
-    HumanMessage(content=f"""
+        SystemMessage(content="You are a ruthless, no-laugh-given Twitter critic."),
+        HumanMessage(content=f"""
 Evaluate the following tweet:
 
 Tweet: \"{state['tweet']}\"
 
-Use the criteria below to evaluate the tweet:
-
-1. Originality – Is this fresh, or have you seen it a hundred times before?  
-2. Humor – Did it genuinely make you smile, laugh, or chuckle?  
-3. Punchiness – Is it short, sharp, and scroll-stopping?  
-4. Virality Potential – Would people retweet or share it?  
-5. Format – Is it a well-formed tweet (not a setup-punchline joke, not a Q&A joke, and under 280 characters)?
+Criteria:
+1. Originality – Is it fresh?
+2. Humor – Is it funny?
+3. Punchiness – Is it short and catchy?
+4. Virality – Would people share it?
+5. Format – Under 280 characters, no Q&A or setup-punchline.
 
 Auto-reject if:
-- It's written in question-answer format (e.g., "Why did..." or "What happens when...")
-- It exceeds 280 characters
-- It reads like a traditional setup-punchline joke
-- Dont end with generic, throwaway, or deflating lines that weaken the humor (e.g., “Masterpieces of the auntie-uncle universe” or vague summaries)
+- It's a question-answer or setup-punchline joke.
+- Over 280 characters.
+- Ends with weak lines (e.g., "Masterpieces of the auntie-uncle universe").
 
-### Respond ONLY in structured format:
-- evaluation: "approved" or "needs_improvement"  
-- feedback: One paragraph explaining the strengths and weaknesses 
+Respond in structured format:
+- evaluation: "approved" or "needs_improvement"
+- feedback: One paragraph explaining strengths and weaknesses
 """)
-]
+    ]
     response = structured_evaluator_llm.invoke(messages)
-    return {'evaluation':response.evaluation,'feedback':response.feedback ,'feedback_history': [response.feedback]}
+    return {
+        'evaluation': response.evaluation,
+        'feedback': response.feedback,
+        'feedback_history': [response.feedback]
+    }
 
 def optimize_tweet(state: TweetState):
     messages = [
-        SystemMessage(content="You punch up tweets for virality and humor based on given feedback."),
+        SystemMessage(content="You punch up tweets for virality and humor."),
         HumanMessage(content=f"""
 Improve the tweet based on this feedback:
 "{state['feedback']}"
 
 Topic: "{state['topic']}"
-Original Tweet:
-{state['tweet']}
+Original Tweet: {state['tweet']}
 
-Re-write it as a short, viral-worthy tweet. Avoid Q&A style and stay under 280 characters.
+Re-write as a short, viral tweet. Avoid Q&A, under 280 characters.
 """)
     ]
     response = optimizer_llm.invoke(messages).content
     iteration = state['iteration'] + 1
-    return{
-        'tweet':response,
-        'iteration':iteration,
-        'tweet_history': [response]
-    }
+    return {'tweet': response, 'iteration': iteration, 'tweet_history': [response]}
 
 def route_evaluation(state: TweetState):
     if state['evaluation'] == 'approved' or state['iteration'] >= state['max_iteration']:
         return 'approved'
-    else:
-        return 'needs_improvement'
+    return 'needs_improvement'
 
 def run_workflow(topic: str, max_iteration: int = 5):
-    state = {
-        'topic': topic,
-        'iteration': 1,
-        'max_iteration': max_iteration
-    }
+    state = {'topic': topic, 'iteration': 1, 'max_iteration': max_iteration}
     graph = StateGraph(TweetState)
     graph.add_node('generate', generate_tweet)
     graph.add_node('evaluate', evaluate_tweet)
     graph.add_node('optimize', optimize_tweet)
-    graph.add_edge(START,'generate')
-    graph.add_edge('generate','evaluate')
-    graph.add_conditional_edges('evaluate',route_evaluation,{'approved':END,'needs_improvement':'optimize'})
-    graph.add_edge('optimize','evaluate')
+    graph.add_edge(START, 'generate')
+    graph.add_edge('generate', 'evaluate')
+    graph.add_conditional_edges('evaluate', route_evaluation, {'approved': END, 'needs_improvement': 'optimize'})
+    graph.add_edge('optimize', 'evaluate')
     workflow = graph.compile()
-    final_output = workflow.invoke(state)
-    return final_output
+    return workflow.invoke(state)
 
-app = Flask(__name__)
+# OAuth 2.0 Routes
+@app.route('/login')
+def login():
+    print("🔍 Login route accessed!")
+    
+    if not CLIENT_ID:
+        return jsonify({'error': 'Client ID not set'}), 500
+
+    # Generate a random state for security
+    state = secrets.token_urlsafe(16)
+    session['state'] = state
+    session['user_id'] = secrets.token_urlsafe(16)  # Unique user ID
+    
+    # Generate PKCE parameters
+    code_verifier = secrets.token_urlsafe(32)
+    import hashlib
+    import base64
+    code_challenge = base64.urlsafe_b64encode(hashlib.sha256(code_verifier.encode()).digest()).decode().rstrip('=')
+
+    # Store code_verifier in session
+    session['code_verifier'] = code_verifier
+
+    # Redirect to X login
+    auth_params = {
+        'response_type': 'code',
+        'client_id': CLIENT_ID,
+        'redirect_uri': REDIRECT_URI,
+        'scope': 'tweet.read tweet.write users.read offline.access',
+        'state': state,
+        'code_challenge': code_challenge,
+        'code_challenge_method': 'S256'
+    }
+    auth_url = f"{AUTH_URL}?{'&'.join(f'{k}={v}' for k, v in auth_params.items())}"
+    
+    print(f"Redirecting to: {auth_url}")
+    print(f"State: {state}")
+    print(f"Redirect URI: {REDIRECT_URI}")
+    print(f"Code challenge: {code_challenge}")
+    
+    return redirect(auth_url)
+
+@app.route('/callback')
+def callback():
+    print("🔍 Callback received!")
+    print(f"URL args: {dict(request.args)}")
+    
+    code = request.args.get('code')
+    state = request.args.get('state')
+    error = request.args.get('error')
+    error_description = request.args.get('error_description')
+    
+    saved_state = session.get('state')
+    
+    print(f"Code: {code}")
+    print(f"State: {state}")
+    print(f"Saved state: {saved_state}")
+    print(f"Error: {error}")
+    print(f"Error description: {error_description}")
+
+    if error:
+        return jsonify({'error': f'OAuth error: {error}', 'description': error_description}), 400
+
+    if not code or state != saved_state:
+        return jsonify({'error': 'Invalid login attempt'}), 400
+
+    # Exchange code for access token
+    code_verifier = session.get('code_verifier')
+    if not code_verifier:
+        return jsonify({'error': 'Code verifier not found in session'}), 400
+        
+    token_data = {
+        'grant_type': 'authorization_code',
+        'code': code,
+        'client_id': CLIENT_ID,
+        'client_secret': CLIENT_SECRET,
+        'redirect_uri': REDIRECT_URI,
+        'code_verifier': code_verifier
+    }
+    
+    try:
+        # Use basic auth with client_id and client_secret
+        import base64
+        credentials = f"{CLIENT_ID}:{CLIENT_SECRET}"
+        encoded_credentials = base64.b64encode(credentials.encode()).decode()
+        
+        headers = {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'Authorization': f'Basic {encoded_credentials}'
+        }
+        
+        print(f"Token data being sent: {token_data}")
+        print(f"Headers: {headers}")
+        
+        response = requests.post(TOKEN_URL, data=token_data, headers=headers)
+        print(f"Token response status: {response.status_code}")
+        print(f"Token response: {response.text}")
+        
+        if response.status_code != 200:
+            return jsonify({'error': 'Failed to get token', 'details': response.text}), 500
+
+        token_response = response.json()
+        user_tokens[session['user_id']] = {
+            'access_token': token_response['access_token'],
+            'refresh_token': token_response.get('refresh_token')
+        }
+        return redirect(url_for('tweet_page'))
+    except Exception as e:
+        return jsonify({'error': f'Authentication failed: {str(e)}'}), 500
+
+@app.route('/logout')
+def logout():
+    user_id = session.get('user_id')
+    if user_id and user_id in user_tokens:
+        del user_tokens[user_id]
+    session.clear()
+    return redirect(url_for('landing_page'))
 
 @app.route('/')
 def landing_page():
@@ -152,40 +272,58 @@ def landing_page():
 def tweet_page():
     return send_file('tweet.html')
 
+@app.route('/check-auth')
+def check_auth():
+    user_id = session.get('user_id')
+    is_authenticated = user_id is not None and user_id in user_tokens
+    return jsonify({'authenticated': is_authenticated})
+
+@app.route('/test-callback')
+def test_callback():
+    """Test endpoint to verify callback URL is accessible"""
+    return jsonify({'message': 'Callback URL is working!', 'timestamp': 'test'})
+
 @app.route('/generate-tweet', methods=['POST'])
 def generate_tweet_api():
     data = request.get_json()
     topic = data.get('topic')
     if not topic:
         return jsonify({'error': 'No topic provided'}), 400
-    result = run_workflow(topic)
-    return jsonify({
-        'tweet': result['tweet'],
-        'feedback': result.get('feedback', ''),
-        'evaluation': result.get('evaluation', ''),
-        'tweet_history': result.get('tweet_history', []),
-        'feedback_history': result.get('feedback_history', [])
-    })
+    
+    # Check if LLM models are available
+    if not generator_llm or not evaluator_llm or not optimizer_llm:
+        return jsonify({'error': 'AI models not available. Please check your GROQ_API_KEY configuration.'}), 500
+    
+    try:
+        result = run_workflow(topic)
+        return jsonify({
+            'tweet': result['tweet'],
+            'feedback': result.get('feedback', ''),
+            'evaluation': result.get('evaluation', '')
+        })
+    except Exception as e:
+        return jsonify({'error': f'Failed to generate tweet: {str(e)}'}), 500
 
 @app.route('/post-tweet', methods=['POST'])
 def post_tweet_api():
     data = request.get_json()
     tweet = data.get('tweet')
+    user_id = session.get('user_id')
+
     if not tweet:
         return jsonify({'error': 'No tweet provided'}), 400
-    try:
-        # Use environment credentials
-        client = tweepy.Client(
-            consumer_key=consumer_key,
-            consumer_secret=consumer_secret,
-            access_token=access_token,
-            access_token_secret=access_secret
-        )
-        response = client.create_tweet(text=tweet)
-        tweet_id = response.data['id'] if hasattr(response, 'data') and 'id' in response.data else None
+    if not user_id or user_id not in user_tokens:
+        return jsonify({'error': 'Please log in with X'}), 401
+
+    access_token = user_tokens[user_id]['access_token']
+    headers = {'Authorization': f'Bearer {access_token}', 'Content-Type': 'application/json'}
+    payload = {'text': tweet}
+    response = requests.post('https://api.twitter.com/2/tweets', json=payload, headers=headers)
+
+    if response.status_code == 201:
+        tweet_id = response.json().get('data', {}).get('id')
         return jsonify({'success': True, 'tweet_id': tweet_id})
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
+    return jsonify({'error': 'Failed to post tweet', 'details': response.text}), 500
 
 if __name__ == '__main__':
-    app.run(debug=True) 
+    app.run(debug=True)

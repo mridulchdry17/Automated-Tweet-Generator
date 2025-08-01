@@ -12,3 +12,28 @@ wheels/
 .uv.lock
 
 .pyproject.toml
+
+
+# Python cache
+__pycache__/
+*.py[cod]
+
+# Virtual environment
+.venv/
+env/
+venv/
+
+# Environment variables
+.env
+test_oauth.py
+
+
+# Python version file (optional, depends on your team setup)
+.python-version
+
+# Lock files (optional, if using poetry or uv locally only)
+uv.lock
+
+# OS-specific
+.DS_Store
+Thumbs.db
